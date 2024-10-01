@@ -179,16 +179,23 @@
 
     // Create sphere (loading indicator)
     let sphereVisible = false;
-    const geometry = new THREE.CircleGeometry(20, 3);
+    const geometry = new THREE.SphereGeometry(4, 8, 8);
     const material = new THREE.MeshBasicMaterial({
       //  color: getRandomColorInt(),
-      opacity: 0.6,
+      opacity: 0.0,
       transparent: true,
       wireframe: true,
     });
     const sphere = new THREE.Mesh(geometry, material);
 
+
+
     let canAddVertice = false;
+
+    let axesHelper;
+    let boxHelper;
+
+    let xShape;
 
     init();
     animate();
@@ -196,24 +203,22 @@
     function init() {
       // Create scene
       scene = new THREE.Scene();
-      // scene.background = new THREE.Color("#fefefe");
-
-      // -loading-
-      startTime = performance.now();
 
       // Create camera
       camera = new THREE.PerspectiveCamera(
         75,
         window.innerWidth / window.innerHeight,
         0.1,
-        7000 // 100000
+        7000
       );
-      camera.position.z = 5500; // 2000
+      camera.position.z = 5500;
+
+      // Add this line to set the initial camera orientation
+      camera.lookAt(0, 0, 0);
 
       // Create renderer
       renderer = new THREE.WebGLRenderer({ antialias: true });
       renderer.setSize(window.innerWidth, window.innerHeight);
-      // renderer.toneMapping = THREE.ReinhardToneMapping;
 
       document.body.appendChild(renderer.domElement);
 
@@ -234,11 +239,11 @@
 
 
 
-      materials = [
-        new THREE.MeshBasicMaterial({ color: 0xff1493, side: THREE.DoubleSide }),
-        new THREE.MeshBasicMaterial({ color: 0x0000ff, side: THREE.DoubleSide }),
-        new THREE.MeshBasicMaterial({ color: 0x00ff00, side: THREE.DoubleSide }),
-      ];
+      // materials = [
+      //   new THREE.MeshBasicMaterial({ color: 0xff1493, side: THREE.DoubleSide }),
+      //   new THREE.MeshBasicMaterial({ color: 0x0000ff, side: THREE.DoubleSide }),
+      //   new THREE.MeshBasicMaterial({ color: 0x00ff00, side: THREE.DoubleSide }),
+      // ];
 
       // plane geometry
       // plane geometry
@@ -374,12 +379,19 @@
 
 
 
+      // opacity: 0.0,
+      // transparent: true,
+      // wireframe: true,
+
 
       // Create a visible point for the vertex
-      const pointGeometry = new THREE.BoxGeometry(3, 3, 3);
+      const pointGeometry = new THREE.SphereGeometry(1.5, 10, 5);
       const pointMaterial = new THREE.MeshBasicMaterial({
-        // color: colorVertex,
-        side: THREE.DoubleSide, // double sided sphere
+        color: colorVertex,
+        opacity: 0.7,
+        transparent: true,
+        // wireframe: true
+        // side: THREE.DoubleSide, // double sided sphere
       });
       const point = new THREE.Mesh(pointGeometry, pointMaterial);
       point.position.set(vertice.x, vertice.y, vertice.z);
@@ -624,6 +636,13 @@
 
     cameraRestart.addEventListener("click", () => {
       controls.reset();
+      camera.reset();
+
+
+      //   returnToOriginalPosition(startPosition, startLookAt);
+
+
+
     });
 
     infoButton.addEventListener("click", () => {
@@ -890,6 +909,9 @@
           const sphere = createWireframeSphere(clickPoint);
           animatePulsatingSphere(sphere);
 
+          // Create X shape at the click point
+          createXShape(new THREE.Vector3(limitedX, limitedY, limitedZ));
+
           // Speed up the line
           lineSpeed = 2;
 
@@ -1001,11 +1023,12 @@
       return finalMessage;
     }
 
-    // New function to move the camera
+    // New function to move the camera and return it
     function moveCameraToVertex(point) {
       const duration = 1000;  // Animation duration in milliseconds
       const startPosition = camera.position.clone();
-      const endPosition = point.clone().add(new THREE.Vector3(0, 0, 100));  // Offset to not be exactly on the point
+      const startLookAt = controls.target.clone();
+      const endPosition = point.clone().add(new THREE.Vector3(0, 0, 70));  // Offset to not be exactly on the point
       const startTime = Date.now();
 
       function animateCamera() {
@@ -1018,10 +1041,65 @@
 
         if (progress < 1) {
           requestAnimationFrame(animateCamera);
+        } else {
+          // After 5 seconds, return to the original position
+          setTimeout(() => {
+            returnToOriginalPosition(startPosition, startLookAt);
+          }, 5000);
         }
       }
 
       animateCamera();
+    }
+
+    // function returnToOriginalPosition(originalPosition, originalLookAt) {
+    //   const duration = 2000;  // Animation duration in milliseconds
+    //   const startPosition = camera.position.clone();
+    //   const startLookAt = controls.target.clone();
+    //   const startTime = Date.now();
+
+    //   function animateReturn() {
+    //     const now = Date.now();
+    //     const timeElapsed = now - startTime;
+    //     const progress = Math.min(timeElapsed / duration, 1);
+
+    //     camera.position.lerpVectors(startPosition, originalPosition, progress);
+    //     controls.target.lerpVectors(startLookAt, originalLookAt, progress);
+
+    //     if (progress < 1) {
+    //       requestAnimationFrame(animateReturn);
+    //     }
+    //   }
+
+    //   animateReturn();
+    // }
+
+    // New function to create X shape
+    function createXShape(position) {
+      if (xShape) {
+        scene.remove(xShape);
+      }
+
+      const material = new THREE.LineBasicMaterial({ color: 0xFFFFFF });
+      const size = 10; // Adjust size as needed
+
+      const points = [
+        new THREE.Vector3(-size / 2, -size / 2, 0),
+        new THREE.Vector3(size / 2, size / 2, 0),
+        new THREE.Vector3(-size / 2, size / 2, 0),
+        new THREE.Vector3(size / 2, -size / 2, 0)
+      ];
+
+      const geometry = new THREE.BufferGeometry().setFromPoints(points);
+      xShape = new THREE.LineSegments(geometry, material);
+      xShape.position.copy(position);
+      scene.add(xShape);
+
+      // Remove X shape after 5 seconds
+      setTimeout(() => {
+        scene.remove(xShape);
+        xShape = null;
+      }, 10000);
     }
   </script>
 

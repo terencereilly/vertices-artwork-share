@@ -417,6 +417,7 @@
 
         const material = new THREE.MeshBasicMaterial({
           color: currentLineColor,
+          side: THREE.DoubleSide  // Add this line to make it double-sided
         });
 
         // Number of segments to draw the line
@@ -1099,7 +1100,7 @@
       setTimeout(() => {
         scene.remove(xShape);
         xShape = null;
-      }, 10000);
+      }, 5000);
     }
   </script>
 

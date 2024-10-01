@@ -1005,7 +1005,7 @@
     function moveCameraToVertex(point) {
       const duration = 1000;  // Animation duration in milliseconds
       const startPosition = camera.position.clone();
-      const endPosition = point.clone().add(new THREE.Vector3(0, 50, 250));  // Offset to not be exactly on the point
+      const endPosition = point.clone().add(new THREE.Vector3(0, 0, 100));  // Offset to not be exactly on the point
       const startTime = Date.now();
 
       function animateCamera() {

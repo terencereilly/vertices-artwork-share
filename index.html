@@ -782,9 +782,9 @@
             // Use the stored camera position
             if (vertex.cameraPosition) {
               moveCameraToVertex(new THREE.Vector3(
-                vertex.cameraPosition.x,
-                vertex.cameraPosition.y,
-                vertex.cameraPosition.z
+                vertex.cameraPosition.posX,
+                vertex.cameraPosition.posY,
+                vertex.cameraPosition.posZ
               ));
             }
           });
@@ -794,9 +794,9 @@
             // Use the stored camera position
             if (pendingVertices[i].cameraPosition) {
               moveCameraToVertex(new THREE.Vector3(
-                pendingVertices[i].cameraPosition.x,
-                pendingVertices[i].cameraPosition.y,
-                pendingVertices[i].cameraPosition.z
+                pendingVertices[i].cameraPosition.posX,
+                pendingVertices[i].cameraPosition.posY,
+                pendingVertices[i].cameraPosition.posZ
               ));
             }
           }
@@ -1367,9 +1367,9 @@
             lineColor: getRandomColorInt(),
             vertexColor: getRandomColorInt(),
             cameraPosition: {
-              x: camera.position.x,
-              y: camera.position.y,
-              z: camera.position.z
+              posX: Math.floor(camera.position.x),
+              posY: Math.floor(camera.position.y),
+              posZ: Math.floor(camera.position.z)
             }
           };
 

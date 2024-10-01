@@ -39,12 +39,9 @@ canvas {
 
 #googleLogo {
   margin: 5px;
-  width: 100px;
+  width: 132px;
+  /* Increased from 110px to 132px (20% bigger) */
 }
-
-
-
-
 
 #tutorialContainer {
   position: fixed;

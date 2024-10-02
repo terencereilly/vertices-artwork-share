@@ -655,8 +655,6 @@
 
     let xShape;
 
-    let cameraPositions = [];
-
     init();
     animate();
 
@@ -777,38 +775,27 @@
         }
 
         if (drawIndex <= 1) {
+          // Code to add a first vertice on the start of the vertices array
+          // pendingVertices.unshift({
+          //   x: 0,
+          //   y: 0,
+          //   z: 0,
+          //   lineColor: getRandomColorInt(),
+          //   vertexColor: getRandomColorInt(),
+          // });
+
           pendingVertices.forEach((vertex) => {
             addVertex(vertex);
-            // Use the stored camera position and lookAt target
-            if (vertex.cameraPosition && vertex.lookAtPosition) {
-              moveCameraToVertex(new THREE.Vector3(
-                vertex.cameraPosition[0],
-                vertex.cameraPosition[1],
-                vertex.cameraPosition[2]
-              ));
-              controls.target.set(
-                vertex.lookAtPosition[0],
-                vertex.lookAtPosition[1],
-                vertex.lookAtPosition[2]
-              );
-            }
           });
+          // Code to center the camera pivot on the first vertice instead of origin (0,0,0)
+          // controls.target.set(
+          //   pendingVertices[0].x,
+          //   pendingVertices[0].y,
+          //   pendingVertices[0].z
+          // );
         } else {
           for (let i = lastDraw; i < pendingVertices.length; i++) {
             addVertex(pendingVertices[i]);
-            // Use the stored camera position and lookAt target
-            if (pendingVertices[i].cameraPosition && pendingVertices[i].lookAtPosition) {
-              moveCameraToVertex(new THREE.Vector3(
-                pendingVertices[i].cameraPosition[0],
-                pendingVertices[i].cameraPosition[1],
-                pendingVertices[i].cameraPosition[2]
-              ));
-              controls.target.set(
-                pendingVertices[i].lookAtPosition[0],
-                pendingVertices[i].lookAtPosition[1],
-                pendingVertices[i].lookAtPosition[2]
-              );
-            }
           }
         }
 
@@ -1376,16 +1363,6 @@
             z: limitedZ,
             lineColor: getRandomColorInt(),
             vertexColor: getRandomColorInt(),
-            cameraPosition: [
-              Math.floor(camera.position.x),
-              Math.floor(camera.position.y),
-              Math.floor(camera.position.z)
-            ],
-            lookAtPosition: [
-              Math.floor(controls.target.x),
-              Math.floor(controls.target.y),
-              Math.floor(controls.target.z)
-            ]
           };
 
           // Create and animate wireframe sphere
@@ -1399,12 +1376,6 @@
           lineSpeed = 2;
 
           olta.create("vertices", newVertice);
-
-          // Store the camera position and lookAt target
-          cameraPositions.push({
-            cameraPosition: newVertice.cameraPosition,
-            lookAtPosition: newVertice.lookAtPosition
-          });
 
           // Move camera to the new vertex
           moveCameraToVertex(clickPoint);

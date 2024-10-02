@@ -6,7 +6,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <link rel="stylesheet" type="text/css" href="style.css" />
   <title>Vertices</title>
-
+  <style>
+    #googleLogo {
+      display: none;
+    }
+  </style>
 </head>
 
 <body>
@@ -334,7 +338,9 @@
           lastVertex.cameraZ = lastVertex.cameraZ !== undefined ? lastVertex.cameraZ : camera.position.z;
 
           console.log('New camera position:', lastVertex.cameraX, lastVertex.cameraY, lastVertex.cameraZ);
-          // TODO: Implement smooth camera transition to this position
+
+          // Update camera position on all devices
+          moveCameraToPosition(lastVertex.cameraX, lastVertex.cameraY, lastVertex.cameraZ);
         } else {
           console.warn('Last vertex is missing camera position data:', lastVertex);
         }
@@ -1146,6 +1152,28 @@
       }
 
       animateReset();
+    }
+
+    function moveCameraToPosition(x, y, z) {
+      const duration = 1000;  // Animation duration in milliseconds
+      const startPosition = camera.position.clone();
+      const endPosition = new THREE.Vector3(x, y, z);
+      const startTime = Date.now();
+
+      function animateCamera() {
+        const now = Date.now();
+        const timeElapsed = now - startTime;
+        const progress = Math.min(timeElapsed / duration, 1);
+
+        camera.position.lerpVectors(startPosition, endPosition, progress);
+        controls.target.set(0, 0, 0);  // Adjust this if you want to look at a specific point
+
+        if (progress < 1) {
+          requestAnimationFrame(animateCamera);
+        }
+      }
+
+      animateCamera();
     }
   </script>
 

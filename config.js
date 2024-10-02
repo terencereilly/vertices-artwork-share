@@ -90,3 +90,40 @@
       }
     }
   }
+
+
+
+Collection: vertices
+https://vertices-partnership-01.vercel.app/
+
+x
+min: -10000000
+max: 10000000
+y
+min: -10000000
+max: 10000000
+z
+min: -10000000
+max: 10000000
+
+lineColor
+min: 0
+max: 15658734
+
+vertexColor
+min: 0
+max: 15658734
+
+cameraX
+min: -10000000
+max: 10000000
+
+cameraY
+min: -10000000
+max: 10000000
+
+cameraZ
+min: -10000000
+max: 10000000
+
+

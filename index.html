@@ -782,14 +782,14 @@
             // Use the stored camera position and lookAt target
             if (vertex.cameraPosition && vertex.lookAtPosition) {
               moveCameraToVertex(new THREE.Vector3(
-                vertex.cameraPosition.posX,
-                vertex.cameraPosition.posY,
-                vertex.cameraPosition.posZ
+                vertex.cameraPosition[0],
+                vertex.cameraPosition[1],
+                vertex.cameraPosition[2]
               ));
               controls.target.set(
-                vertex.lookAtPosition.lookAtX,
-                vertex.lookAtPosition.lookAtY,
-                vertex.lookAtPosition.lookAtZ
+                vertex.lookAtPosition[0],
+                vertex.lookAtPosition[1],
+                vertex.lookAtPosition[2]
               );
             }
           });
@@ -799,14 +799,14 @@
             // Use the stored camera position and lookAt target
             if (pendingVertices[i].cameraPosition && pendingVertices[i].lookAtPosition) {
               moveCameraToVertex(new THREE.Vector3(
-                pendingVertices[i].cameraPosition.posX,
-                pendingVertices[i].cameraPosition.posY,
-                pendingVertices[i].cameraPosition.posZ
+                pendingVertices[i].cameraPosition[0],
+                pendingVertices[i].cameraPosition[1],
+                pendingVertices[i].cameraPosition[2]
               ));
               controls.target.set(
-                pendingVertices[i].lookAtPosition.lookAtX,
-                pendingVertices[i].lookAtPosition.lookAtY,
-                pendingVertices[i].lookAtPosition.lookAtZ
+                pendingVertices[i].lookAtPosition[0],
+                pendingVertices[i].lookAtPosition[1],
+                pendingVertices[i].lookAtPosition[2]
               );
             }
           }
@@ -1376,16 +1376,16 @@
             z: limitedZ,
             lineColor: getRandomColorInt(),
             vertexColor: getRandomColorInt(),
-            cameraPosition: {
-              posX: Math.floor(camera.position.x),
-              posY: Math.floor(camera.position.y),
-              posZ: Math.floor(camera.position.z)
-            },
-            lookAtPosition: {
-              lookAtX: Math.floor(controls.target.x),
-              lookAtY: Math.floor(controls.target.y),
-              lookAtZ: Math.floor(controls.target.z)
-            }
+            cameraPosition: [
+              Math.floor(camera.position.x),
+              Math.floor(camera.position.y),
+              Math.floor(camera.position.z)
+            ],
+            lookAtPosition: [
+              Math.floor(controls.target.x),
+              Math.floor(controls.target.y),
+              Math.floor(controls.target.z)
+            ]
           };
 
           // Create and animate wireframe sphere

@@ -779,25 +779,35 @@
         if (drawIndex <= 1) {
           pendingVertices.forEach((vertex) => {
             addVertex(vertex);
-            // Use the stored camera position
-            if (vertex.cameraPosition) {
+            // Use the stored camera position and lookAt target
+            if (vertex.cameraPosition && vertex.lookAtPosition) {
               moveCameraToVertex(new THREE.Vector3(
                 vertex.cameraPosition.posX,
                 vertex.cameraPosition.posY,
                 vertex.cameraPosition.posZ
               ));
+              controls.target.set(
+                vertex.lookAtPosition.lookAtX,
+                vertex.lookAtPosition.lookAtY,
+                vertex.lookAtPosition.lookAtZ
+              );
             }
           });
         } else {
           for (let i = lastDraw; i < pendingVertices.length; i++) {
             addVertex(pendingVertices[i]);
-            // Use the stored camera position
-            if (pendingVertices[i].cameraPosition) {
+            // Use the stored camera position and lookAt target
+            if (pendingVertices[i].cameraPosition && pendingVertices[i].lookAtPosition) {
               moveCameraToVertex(new THREE.Vector3(
                 pendingVertices[i].cameraPosition.posX,
                 pendingVertices[i].cameraPosition.posY,
                 pendingVertices[i].cameraPosition.posZ
               ));
+              controls.target.set(
+                pendingVertices[i].lookAtPosition.lookAtX,
+                pendingVertices[i].lookAtPosition.lookAtY,
+                pendingVertices[i].lookAtPosition.lookAtZ
+              );
             }
           }
         }
@@ -1370,6 +1380,11 @@
               posX: Math.floor(camera.position.x),
               posY: Math.floor(camera.position.y),
               posZ: Math.floor(camera.position.z)
+            },
+            lookAtPosition: {
+              lookAtX: Math.floor(controls.target.x),
+              lookAtY: Math.floor(controls.target.y),
+              lookAtZ: Math.floor(controls.target.z)
             }
           };
 
@@ -1385,8 +1400,11 @@
 
           olta.create("vertices", newVertice);
 
-          // Store the camera position
-          cameraPositions.push(newVertice.cameraPosition);
+          // Store the camera position and lookAt target
+          cameraPositions.push({
+            cameraPosition: newVertice.cameraPosition,
+            lookAtPosition: newVertice.lookAtPosition
+          });
 
           // Move camera to the new vertex
           moveCameraToVertex(clickPoint);

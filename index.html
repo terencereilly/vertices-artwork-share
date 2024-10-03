@@ -13,7 +13,7 @@
 
     #loadingOverlay {
       display: none;
-      /* Hide the overlay */
+      /* Ensure the overlay is hidden */
     }
   </style>
 </head>
@@ -690,7 +690,8 @@
 
     function displayMessageContainer() {
       if (!displayMessage) {
-        loadingOverlay.style.display = "block";
+        // Comment out or remove the line that shows the overlay
+        // loadingOverlay.style.display = "block";
         loadingOverlay.style.opacity = 0;
 
         requestAnimationFrame(() => {

@@ -131,7 +131,7 @@
     let rotationOn = true;
     let displayInfo = false;
     let displayMessage = false;
-    let lineSpeed = 150; // 100 
+    let lineSpeed = 200; // 100 
 
     let planeMesh, boxMesh, boxMeshWireframe, planeMeshWireframe;
     let forceWebGL = false;
@@ -449,7 +449,7 @@
         drawing = true;
       }
       if (drawIndex >= vertices.length - 1) {
-        lineSpeed = 150;
+        lineSpeed = 200;
       }
     }
 
@@ -930,7 +930,7 @@
           createXShape(new THREE.Vector3(limitedX, limitedY, limitedZ));
 
           // Speed up the line
-          lineSpeed = 2;
+          lineSpeed = 3;
 
           olta.create("vertices", newVertice);
 

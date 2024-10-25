@@ -1,0 +1,1261 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="stylesheet" type="text/css" href="style.css" />
+    <title>Vertices</title>
+    <style>
+        #googleLogo {
+            display: none;
+        }
+
+        #loadingOverlay {
+            display: none;
+            /* Ensure the overlay is hidden */
+        }
+    </style>
+</head>
+
+<body>
+    <div id="googleContainer">
+        <img src="img/google-logo1.png" alt="Google Logo" id="googleLogo" />
+        <!-- <img src="img/UWE-Bristol-Logo-Banner.png" alt="Arweave Logo" id="arweaveLogo" /> -->
+    </div>
+    <div id="tutorialContainer">
+        <div id="tutorialText">Tap anywhere to create a Vertex</div>
+    </div>
+    <div id="floatingTextContainer">
+        <div id="floatingText">
+            <span id="title"> How to evolve this artwork </span>
+            <ul>
+                <li>Tap ‘+’ button</li>
+                <li>Tap anywhere on screen to add a vertex</li>
+                <li>A line draws from the last vertex to yours</li>
+                <li>The camera point of view changes to yours</li>
+                <!-- <li>Each audience interaction is stored on Arweave</li> -->
+            </ul>
+            <span id="title">Concept: Connection</span>
+            <span>
+                As people collectively interact, more and more vertices
+                synchronize, while the lines form connections between us.
+                The camera moves to where you add a vertex. This artwork remebers
+                your change(s) and point of view, for all to see.
+            </span>
+            <span id="madeBy">
+                Made by the Olta team
+            </span>
+        </div>
+    </div>
+
+    <div id="loadingOverlay">
+        <div id="loadingDiv">
+            <svg viewBox="0 0 100 100">
+                <circle cx="50" cy="50" r="45" fill="none" stroke="#FFFFFF50" stroke-width="10" />
+                <circle id="progress" cx="50" cy="50" r="45" fill="none" stroke="white" stroke-width="11"
+                    stroke-dasharray="0 283" stroke-linecap="round" />
+            </svg>
+        </div>
+        <div id="popupMessage">
+            <span id="loadingText"></span>
+            <!-- Share button inside message div to be shown when interaction goes through -->
+            <button class="floating__share" type="button" id="shareButton">
+                SHARE
+            </button>
+        </div>
+    </div>
+
+    <div id="optionsSection">
+        <button id="addVertexButton" class="animated">+</button>
+        <button id="infoButton" class="camera-button">
+            <img src="img/info_icon.svg" alt="Information" />
+        </button>
+
+        <!-- Camera buttons -->
+        <div id="cameraButtonContainer">
+            <button id="mainCameraButton" class="camera-button">
+                <img id="cameraImage" src="img/front_icon.svg" alt="Camera" />
+                <img id="backImage" class="hidden" src="img/back_icon.svg" alt="Back" />
+            </button>
+            <button id="cameraRestart" class="camera-button hidden">
+                <img src="img/camera_restart.svg" alt="Restart Camera" />
+            </button>
+            <button id="cameraEffects" class="camera-button hidden">
+                <img src="img/camera_effects.svg" alt="Effects" />
+            </button>
+            <button id="cameraRotation" class="camera-button hidden">
+                <img src="img/camera_rotate.svg" alt="Rotation" />
+            </button>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://unpkg.com/vanilla-sharing"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html-to-image/1.11.11/html-to-image.min.js"
+        integrity="sha512-7tWCgq9tTYS/QkGVyKrtLpqAoMV9XIUxoou+sPUypsaZx56cYR/qio84fPK9EvJJtKvJEwt7vkn6je5UVzGevw=="
+        crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+
+
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "../build/three.module.js",
+            "three/tsl": "../build/three.webgpu.js",
+            "three/addons/": "../jsm/"
+        }
+    }
+  </script>
+
+    <script type="module">
+
+        import * as THREE from 'three';
+
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+        import { GUI } from 'three/addons/libs/lil-gui.module.min.js';
+        import { Olta } from "./lib/olta.module.js";
+
+        let renderer, scene, camera, controls;
+        let materials;
+        let snap = false;
+        const shareButton = document.getElementById("shareButton");
+        let vertices = [];
+        let pendingVertices = [];
+        let lastDraw = 0;
+        let lines = [];
+        let currentLine;
+        let drawing = false;
+        let drawIndex = 1;
+        const raycaster = new THREE.Raycaster();
+        const mouse = new THREE.Vector2();
+        let rotationOn = false;
+        let displayInfo = false;
+        let displayMessage = false;
+        let lineSpeed = 300; // 100 
+
+        let planeMesh, boxMesh, boxMeshWireframe, planeMeshWireframe;
+        let forceWebGL = false;
+        let composer, renderPass, halftonePass, params;
+        let sky1;
+        let effectsOn = false;
+
+
+
+
+
+
+
+        // ----------- Message Logic -----------
+        let startTime;
+        const loadingText = document.getElementById("loadingText");
+        const loadingOverlay = document.getElementById("loadingOverlay");
+
+        let currentMessage;
+        let loading = false;
+
+        let messages = [
+            "Thank you",
+        ];
+        // ------------ Share Logic ------------
+
+
+        // ----- Options Panel -----
+        const backImage = document.getElementById("backImage");
+        const cameraImage = document.getElementById("cameraImage");
+        const buttonAdd = document.getElementById("addVertexButton");
+        const cameraEffects = document.getElementById("cameraEffects");
+        const cameraRestart = document.getElementById("cameraRestart");
+        const cameraRotation = document.getElementById("cameraRotation");
+        const infoButton = document.getElementById("infoButton");
+        const cameraButtonContainer = document.getElementById(
+            "cameraButtonContainer"
+        );
+        const floatingTextContainer = document.getElementById(
+            "floatingTextContainer"
+        );
+        const floatingText = document.getElementById("floatingText");
+        const tutorialContainer = document.getElementById("tutorialContainer");
+
+
+
+        const api = {
+            webgpu: true
+        };
+
+        const olta = Olta();
+        console.log(olta, 'hello');
+
+
+
+
+
+        // Create sphere (loading indicator)
+        let sphereVisible = false;
+        const geometry = new THREE.SphereGeometry(4, 8, 8);
+        const material = new THREE.MeshBasicMaterial({
+            //  color: getRandomColorInt(),
+            opacity: 0.0,
+            transparent: true,
+            wireframe: true,
+        });
+        const sphere = new THREE.Mesh(geometry, material);
+
+
+
+        let canAddVertice = false;
+
+        let axesHelper;
+        let boxHelper;
+
+        let xShape;
+
+        init();
+        animate();
+
+        function init() {
+            // Create scene
+            scene = new THREE.Scene();
+
+            // Create camera
+            camera = new THREE.PerspectiveCamera(
+                75,
+                window.innerWidth / window.innerHeight,
+                0.1,
+                7000
+            );
+            camera.position.z = 5500;
+
+            // Add this line to set the initial camera orientation
+            camera.lookAt(0, 0, 0);
+
+            // Create renderer
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+
+            document.body.appendChild(renderer.domElement);
+
+            controls = new OrbitControls(camera, renderer.domElement);
+            controls.target.set(0, 0, 0);
+            controls.autoRotate = true;
+            controls.autoRotateSpeed = 0.02
+
+            // Camera settings for distance and rotation
+            controls.minPolarAngle = Math.PI * 0.2;
+            controls.maxPolarAngle = Math.PI * 0.2;
+            controls.minDistance = 0; //-1000
+            controls.maxDistance = 6500; // 5000
+            //controls.enablePan = false;
+
+
+            scene.background = forceWebGL ? new THREE.Color(0x000000) : new THREE.Color(0x222222);
+
+
+
+            // materials = [
+            //   new THREE.MeshBasicMaterial({ color: 0xff1493, side: THREE.DoubleSide }),
+            //   new THREE.MeshBasicMaterial({ color: 0x0000ff, side: THREE.DoubleSide }),
+            //   new THREE.MeshBasicMaterial({ color: 0x00ff00, side: THREE.DoubleSide }),
+            // ];
+
+            // plane geometry
+            // plane geometry
+            // const planeGeometry = new THREE.PlaneGeometry(10, 10, 40, 60);
+
+            // planeGeometry.clearGroups();
+            // const numFacesPerRow = 4; // Number of faces in a row (since each face is made of 2 triangles)
+
+            // planeGeometry.addGroup(0, 6 * numFacesPerRow, 0);
+            // planeGeometry.addGroup(6 * numFacesPerRow, 6 * numFacesPerRow, 1);
+            // planeGeometry.addGroup(12 * numFacesPerRow, 6 * numFacesPerRow, 2);
+
+            // // box geometry
+            // const boxGeometry = new THREE.BoxGeometry(.75, .75, .75);
+
+            // boxGeometry.clearGroups();
+            // boxGeometry.addGroup(0, 6, 0); // front face
+            // boxGeometry.addGroup(6, 6, 0); // back face
+            // boxGeometry.addGroup(12, 6, 2); // top face
+            // boxGeometry.addGroup(18, 6, 2); // bottom face
+            // boxGeometry.addGroup(24, 6, 1); // left face
+            // boxGeometry.addGroup(30, 6, 1); // right face
+
+
+            // meshes
+            // planeMesh = new THREE.Mesh(planeGeometry, materials);
+            // const materialsWireframe = [];
+
+            // for (let index = 0; index < materials.length; index++) {
+            //   const material = new THREE.MeshBasicMaterial({
+            //     color: materials[index].color,
+            //     side: THREE.DoubleSide,
+            //     wireframe: true,
+            //   });
+            //   materialsWireframe.push(material);
+            // }
+
+            // planeMeshWireframe = new THREE.Mesh(planeGeometry, materialsWireframe);
+            // boxMeshWireframe = new THREE.Mesh(boxGeometry, materialsWireframe);
+
+            // boxMesh = new THREE.Mesh(boxGeometry, materials);
+
+            // boxMesh.position.set(1.5, - 0.75, -100);
+            // boxMesh.rotation.set(- Math.PI / 8, Math.PI / 4, Math.PI / 4);
+            // boxMesh.scale.set(200, 200, 200);
+
+            // planeMesh.position.set(0, 0, -200);
+            // planeMesh.scale.set(200, 200, 200);
+
+            // planeMeshWireframe.position.set(- 1.5, 1, 0);
+            // planeMeshWireframe.scale.set(200, 200, 200);
+            // boxMeshWireframe.position.set(1.5, 1.25, 0);
+            // boxMeshWireframe.rotation.set(- Math.PI / 8, Math.PI / 4, Math.PI / 4);
+            // boxMeshWireframe.scale.set(200, 200, 200);
+
+            // scene.add(planeMesh, planeMeshWireframe);
+            // scene.add(boxMesh, boxMeshWireframe);
+
+
+
+
+
+
+
+            olta.onUpdate(() => {
+                pendingVertices = olta.getAll("vertices");
+
+                // only update the vertices if there are new vertices
+                if (!pendingVertices || pendingVertices.length < 1) {
+                    return;
+                }
+
+                if (drawIndex <= 1) {
+                    pendingVertices.forEach((vertex) => {
+                        addVertex(vertex);
+                    });
+                } else {
+                    for (let i = lastDraw; i < pendingVertices.length; i++) {
+                        addVertex(pendingVertices[i]);
+                    }
+                }
+
+                const lastVertex = pendingVertices[pendingVertices.length - 1];
+                const previousVertex = vertices[vertices.length - 2]; // Get the previous vertex
+
+                if (lastVertex && previousVertex) {
+                    // Calculate the average position between the last and previous vertices
+                    const averageX = (lastVertex.x + previousVertex.x) / 2;
+                    const averageY = (lastVertex.y + previousVertex.y) / 2;
+                    const averageZ = (lastVertex.z + previousVertex.z) / 2;
+
+                    // Move camera to the average position
+                    moveCameraToPosition(averageX, averageY, averageZ);
+
+                    // Highlight the connecting line
+                    highlightConnectingLine(previousVertex, lastVertex);
+                }
+
+                lastDraw = pendingVertices.length - 1;
+                pendingVertices = [];
+            });
+
+            // Draw lines between vertices
+            drawLines();
+
+            // Modify the button color
+            buttonAdd.style.backgroundColor = "#ff4444";  // Red color
+            buttonAdd.style.color = "white";  // White text for better contrast
+        }
+
+        // function setupPostProcessing() {
+        //   // post-processing
+        //   composer = new EffectComposer(renderer);
+        //   renderPass = new RenderPass(scene, camera);
+        //   halftonePass = new HalftonePass(
+        //     window.innerWidth,
+        //     window.innerHeight,
+        //     params
+        //   );
+
+        //   composer.addPass(renderPass);
+        //   composer.addPass(halftonePass);
+        // }
+
+        function addVertex(vertice) {
+            vertices.push(vertice);
+
+            // Will change the vertex color to use the _creator property (wallet)
+            // let colorVertex = intToHexColor(vertice.vertexColor);
+            let colorVertex = walletToColor(vertice._creator);
+
+
+            // opacity: 0.0,
+            // transparent: true,
+            // wireframe: true,
+
+
+            // Create a visible point for the vertex
+            const pointGeometry = new THREE.SphereGeometry(1.5, 10, 5);
+            const pointMaterial = new THREE.MeshBasicMaterial({
+                color: colorVertex,
+                opacity: 0.7,
+                transparent: true,
+                // wireframe: true
+                // side: THREE.DoubleSide, // double sided sphere
+            });
+            const point = new THREE.Mesh(pointGeometry, pointMaterial);
+            point.position.set(vertice.x, vertice.y, vertice.z);
+            scene.add(point);
+        }
+
+        function drawLines() {
+            if (drawing) return;
+            if (drawIndex < vertices.length) {
+                let currentVertice = vertices[drawIndex - 1];
+                let currentVertex = new THREE.Vector3(
+                    currentVertice.x,
+                    currentVertice.y,
+                    currentVertice.z
+                );
+                let nextVertice = vertices[drawIndex];
+                let nextVertex = new THREE.Vector3(
+                    nextVertice.x,
+                    nextVertice.y,
+                    nextVertice.z
+                );
+                let currentLineColor = intToHexColor(currentVertice.lineColor);
+
+                const material = new THREE.MeshBasicMaterial({
+                    color: currentLineColor,
+                    side: THREE.DoubleSide  // Add this line to make it double-sided
+                });
+
+                // Number of segments to draw the line
+                var segments = lineSpeed;
+                const points = [currentVertex, nextVertex];
+
+                currentLine = {
+                    points,
+                    material,
+                    lineThickness: 2,
+                    segments,
+                    step: 2, // Number of segments to add per frame
+                    currentSegment: 0,
+                    drawnPoints: [currentVertex], // Start with the first point
+                };
+
+                lines.push(currentLine);
+                drawing = true;
+            }
+            if (drawIndex >= vertices.length - 1) {
+                lineSpeed = 2;
+            }
+        }
+
+        // Fix for iPhone
+        buttonAdd.style.display = "flex";
+        buttonAdd.style.alignItems = "center";
+        buttonAdd.style.justifyContent = "center";
+
+        function animate() {
+            if (canAddVertice) {
+                document.body.style.cursor = "copy";
+                buttonAdd.innerText = "✘";
+                controls.autoRotate = false;
+                collapseCameraOptions("close");
+                tutorialContainer.style.display = "flex";
+            } else {
+                document.body.style.cursor = "auto";
+                buttonAdd.innerText = "+";
+                controls.autoRotate = rotationOn;
+                tutorialContainer.style.display = "none";
+            }
+
+            requestAnimationFrame(animate);
+            renderer.render(scene, camera);
+
+
+
+
+
+
+
+            // ----- Share Moment Logic -----
+            if (snap) {
+                // Olta.js function to create a base64 screenshot
+                olta
+                    .capture3d(renderer)
+                    .then((screenshot) => olta.showShareDialog(screenshot))
+                    .catch((error) => console.log("error", error));
+                snap = false;
+            }
+
+            // ----- Camera Buttons -----
+            if (rotationOn) {
+                cameraRotation.style.backgroundColor = "#555555";
+            } else {
+                cameraRotation.style.backgroundColor = "#54545482";
+            }
+            // if (effectsOn) {
+            //   cameraEffects.style.backgroundColor = "#555555";
+            // } else {
+            //   cameraEffects.style.backgroundColor = "#54545482";
+            // }
+
+            if (currentLine && drawing) {
+                const {
+                    points,
+                    material,
+                    lineThickness,
+                    segments,
+                    step,
+                    currentSegment,
+                    drawnPoints,
+                } = currentLine;
+
+                const startPoint = points[0];
+                const endPoint = points[1];
+
+                if (currentSegment < segments) {
+                    const t = (currentSegment + step) / segments;
+                    const interpolatedPoint = new THREE.Vector3().lerpVectors(
+                        startPoint,
+                        endPoint,
+                        t
+                    );
+                    drawnPoints.push(interpolatedPoint);
+
+                    const geometry = new THREE.TubeGeometry(
+                        new THREE.CatmullRomCurve3(drawnPoints),
+                        drawnPoints.length - 1,
+                        lineThickness,
+                        8,
+                        false
+                    );
+
+                    const lineMesh = new THREE.Mesh(geometry, material);
+
+                    if (currentLine.mesh) {
+                        scene.remove(currentLine.mesh);
+                    }
+
+                    currentLine.mesh = lineMesh;
+                    scene.add(lineMesh);
+
+                    currentLine.currentSegment += step;
+                }
+
+                if (currentSegment >= segments) {
+                    // ------ Sphere Indicator Logic ------
+                    if (sphereVisible) {
+                        const lastVertex =
+                            currentLine.points[currentLine.points.length - 1];
+                        const distanceToSphere = lastVertex.distanceTo(sphere.position);
+                        if (distanceToSphere < 20) {
+                            // Line reached the sphere, remove it
+                            sphereVisible = false;
+                            scene.remove(sphere);
+
+                            // ----------- Message Logic -----------
+                            displayMessageContainer();
+
+                            generateRandomMessage().then((message) => {
+                                currentMessage = message;
+                                loadingText.innerHTML = currentMessage;
+                            });
+                            // ---------------------------------------
+                        }
+                    }
+
+                    currentLine = null;
+                    drawing = false;
+                    drawIndex++;
+                }
+            } else if (!drawing) {
+                drawLines();
+            }
+
+            controls.update();
+
+            // render
+            const elapsed = (performance.now() - startTime) / 1000;
+
+            renderer.render(scene, camera);
+
+            // delay post processing
+            // if (composer && effectsOn) {
+            //   composer.render();
+            // } else {
+            //   renderer.render(scene, camera);
+            // }
+        }
+
+        window.addEventListener("resize", onWindowResize);
+        renderer.domElement.addEventListener("click", onClick);
+        renderer.domElement.addEventListener("touchstart", onClick);
+
+        loadingOverlay.addEventListener("click", closeMessage);
+        loadingOverlay.addEventListener("touchstart", closeMessage);
+
+        // if (composer) composer.setSize(window.innerWidth, window.innerHeight);
+
+        // Flag to control which event was fired
+        let isTouchEvent = false;
+
+        buttonAdd.addEventListener("click", (event) => {
+            closeInfoPanel();
+
+            if (isTouchEvent) {
+                isTouchEvent = false; // Reset the flag
+                return; // Ignore this event because touchstart was fired
+            }
+
+            canAddVertice = !canAddVertice;
+        });
+
+        // -- Add Button --
+        buttonAdd.addEventListener(
+            "touchstart",
+            (event) => {
+                isTouchEvent = true; // Set the flag to indicate a touch event was fired
+                canAddVertice = !canAddVertice;
+            },
+            { passive: true }
+        );
+
+        // ----- Share -----
+
+        shareButton.addEventListener("click", async () => {
+            snap = true;
+        });
+
+        shareButton.addEventListener("touchstart", async () => {
+            snap = true;
+        });
+
+        // ----- Camera Mode Buttons -----
+        document
+            .getElementById("mainCameraButton")
+            .addEventListener("click", () => {
+                collapseCameraOptions();
+                closeInfoPanel();
+            });
+
+        cameraRotation.addEventListener("click", () => {
+            rotationOn = !rotationOn;
+        });
+
+        cameraRestart.addEventListener("click", () => {
+            smoothResetCamera();
+        });
+
+        infoButton.addEventListener("click", () => {
+            displayInfoPanel();
+            collapseCameraOptions("close");
+        });
+
+        // cameraEffects.addEventListener("click", () => {
+        //   effectsOn = !effectsOn;
+        //   if (!effectsOn) {
+        //     scene.remove(sky1);
+        //   } else {
+        //     scene.add(sky1);
+        //   }
+        // });
+
+        function displayInfoPanel() {
+            if (!displayInfo) {
+                floatingText.style.opacity = 0;
+                floatingText.style.display = "flex";
+
+                setTimeout(() => {
+                    floatingText.style.opacity = 1;
+                    displayInfo = true;
+                }, 200);
+            } else {
+                closeInfoPanel();
+            }
+        }
+
+        function closeInfoPanel() {
+            floatingText.style.opacity = 0;
+
+            setTimeout(() => {
+                floatingText.style.display = "none";
+                floatingText.style.opacity = 1;
+                displayInfo = false;
+            }, 500);
+        }
+
+        function displayMessageContainer() {
+            if (!displayMessage) {
+                // Comment out or remove the line that shows the overlay
+                // loadingOverlay.style.display = "block";
+                loadingOverlay.style.opacity = 0;
+
+                requestAnimationFrame(() => {
+                    loadingOverlay.style.transition = "opacity 0.5s ease-in";
+                    loadingOverlay.style.opacity = 1;
+                    displayMessage = true;
+
+                    // Add a timeout to hide the message after 5 seconds
+                    setTimeout(() => {
+                        closeMessage();
+                    }, 5000);
+                });
+            } else {
+                closeMessage();
+            }
+        }
+
+        function closeMessage() {
+            loadingOverlay.style.transition = "opacity 0.5s ease-out";
+            loadingOverlay.style.opacity = 0;
+
+            loadingOverlay.addEventListener('transitionend', function handler() {
+                loadingOverlay.style.display = "none";
+                displayMessage = false;
+                shareButton.style.display = "none";
+                loadingOverlay.removeEventListener('transitionend', handler);
+            });
+        }
+
+        function collapseCameraOptions(action = null) {
+            if (action === "close") {
+                cameraRotation.classList.add("hidden");
+                cameraRestart.classList.add("hidden");
+                cameraEffects.classList.add("hidden");
+
+                backImage.classList.remove("fade-in");
+                cameraImage.classList.add("fade-in");
+                cameraButtonContainer.style.backgroundColor = "inherit";
+                cameraButtonContainer.style.borderRadius = "inherit";
+                cameraButtonContainer.style.height = "inherit";
+                cameraButtonContainer.style.paddingLeft = "inherit";
+                setTimeout(() => {
+                    backImage.classList.add("hidden");
+                    cameraImage.classList.remove("hidden");
+                }, 200);
+                return; // exit the function
+            } else if (action === "open") {
+                cameraRotation.classList.remove("hidden");
+                cameraRestart.classList.remove("hidden");
+                cameraEffects.classList.remove("hidden");
+            } else {
+                cameraRotation.classList.toggle("hidden");
+                cameraRestart.classList.toggle("hidden");
+                cameraEffects.classList.toggle("hidden");
+            }
+
+            if (cameraImage.classList.contains("hidden")) {
+                cameraImage.classList.remove("fade-out");
+                backImage.classList.remove("fade-in");
+                backImage.classList.add("fade-out");
+                cameraImage.classList.add("fade-in");
+                cameraButtonContainer.style.backgroundColor = "inherit";
+                cameraButtonContainer.style.borderRadius = "inherit";
+                cameraButtonContainer.style.height = "inherit";
+                cameraButtonContainer.style.paddingLeft = "inherit";
+                setTimeout(() => {
+                    backImage.classList.add("hidden");
+                    cameraImage.classList.remove("hidden");
+                }, 200);
+            } else {
+                backImage.classList.remove("fade-out");
+                cameraImage.classList.remove("fade-in");
+                cameraImage.classList.add("fade-out");
+                backImage.classList.add("fade-in");
+                cameraButtonContainer.style.backgroundColor = "#44444450";
+                cameraButtonContainer.style.borderRadius = "50px";
+                cameraButtonContainer.style.height = "55px";
+                cameraButtonContainer.style.paddingLeft = "10px";
+                setTimeout(() => {
+                    cameraImage.classList.add("hidden");
+                    backImage.classList.remove("hidden");
+                }, 200);
+            }
+        }
+
+        function handleIn() {
+            if (!canAddVertice) {
+                buttonAdd.style.backgroundColor = "#cc3333";  // Darker red on hover
+            } else {
+                buttonAdd.style.backgroundColor = "#cc3333";  // Darker red on hover
+            }
+        }
+
+        function handleOut() {
+            if (!canAddVertice) {
+                buttonAdd.style.backgroundColor = "#ff4444";  // Back to original red
+            } else {
+                buttonAdd.style.backgroundColor = "#ff4444";  // Back to original red
+            }
+        }
+
+        buttonAdd.addEventListener("mouseenter", handleIn);
+        buttonAdd.addEventListener("mouseleave", handleOut);
+        buttonAdd.addEventListener("touchstart", handleIn);
+        buttonAdd.addEventListener("touchend", handleOut);
+        // ----------------
+
+        function onWindowResize() {
+            const width = window.innerWidth;
+            const height = window.innerHeight;
+
+            camera.aspect = width / height;
+            camera.updateProjectionMatrix();
+
+            renderer.setSize(width, height);
+
+
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+
+            // Update the postprocessing passes on window resize
+            // if (composer && halftonePass) {
+            //   composer.setSize(window.innerWidth, window.innerHeight);
+            //   halftonePass.setSize(window.innerWidth, window.innerHeight);
+            // }
+        }
+
+        function onClick(event) {
+            buttonAdd.classList.remove("animated");
+
+            collapseCameraOptions("close");
+
+            let clientX, clientY;
+
+            if (event.type === "touchstart") {
+                isTouchEvent = true;
+                clientX = event.touches[0].clientX;
+                clientY = event.touches[0].clientY;
+            } else {
+                isTouchEvent = false;
+                clientX = event.clientX;
+                clientY = event.clientY;
+            }
+
+            if (canAddVertice) {
+                if (!loading) {
+                    // Calculate mouse position in normalized device coordinates
+                    // (-1 to +1) for both components
+                    mouse.x = (clientX / window.innerWidth) * 2 - 1;
+                    mouse.y = -(clientY / window.innerHeight) * 2 + 1;
+
+                    // Update the raycaster with the camera and mouse position
+                    raycaster.setFromCamera(mouse, camera);
+
+                    // Define the range for the distance from the camera
+                    const minDistance = 120;
+                    const maxDistance = 800;
+
+                    // Find intersection with the near plane
+                    const nearPoint = new THREE.Vector3();
+                    raycaster.ray.at(camera.near, nearPoint);
+
+                    // Find intersection with the far plane
+                    const farPoint = new THREE.Vector3();
+                    raycaster.ray.at(camera.far, farPoint);
+
+                    // Interpolate between near and far points based on a random value
+                    const randomT =
+                        minDistance + Math.random() * (maxDistance - minDistance);
+
+                    // What is clickpoint ?
+                    // clickPoint is a point created between two 3D points 
+                    // (nearPoint and farPoint) based on some random factor (randomT / camera.far).
+                    // The code then checks if the clickPoint is behind the camera by 
+                    // calculating the direction from the camera to the point.
+                    // If the point is too close to the camera, it moves the clickPoint 
+                    // forward by a minimum distance so that it's always in front of the camera.
+
+                    // What is Vector3 ?
+                    // THREE.Vector3(): This is part of a library called Three.js, 
+                    // which is used for working with 3D graphics.
+                    // new THREE.Vector3(): This creates a new 3D vector. Initially, 
+                    // it will have values x = 0, y = 0, and z = 0.
+
+                    // What is lerp ?
+                    // But here we create clickPoint Using lerpVectors. 
+                    // lerp stands for "linear interpolation." It’s a 
+                    // way to find a point between two other points based on a percentage.
+                    // nearPoint and farPoint are two 3D points 
+                    // They represent the closest and farthest points in space along a line, 
+                    // such as a line from the camera to an object.
+                    const clickPoint = new THREE.Vector3().lerpVectors(
+                        nearPoint,
+                        farPoint,
+                        randomT / camera.far
+                    );
+
+                    // Ensure the vertex is not behind the camera
+                    const cameraDirection = new THREE.Vector3()
+                        .subVectors(clickPoint, camera.position)
+                        .normalize();
+                    clickPoint.add(cameraDirection.multiplyScalar(minDistance));
+
+                    // Here we take the coordinates of a click 
+                    // (clickPoint.x, clickPoint.y, clickPoint.z), 
+                    // round them down to whole numbers, and use
+                    // those rounded values to create a new object called newVertice.
+
+                    // In addition to storing the x, y, and z coordinates, 
+                    // the new vertex also has two random colors (lineColor and 
+                    // vertexColor), generated by the getRandomColorInt() function.
+                    // This newVertice object is used to draw & place
+                    // points in a 3D space.
+                    let limitedX, limitedY, limitedZ;
+                    limitedX = Math.floor(clickPoint.x);
+                    limitedY = Math.floor(clickPoint.y);
+                    limitedZ = Math.floor(clickPoint.z);
+
+                    let newVertice = {
+                        x: limitedX,
+                        y: limitedY,
+                        z: limitedZ,
+                        lineColor: getRandomColorInt(),
+                        vertexColor: getRandomColorInt(),
+                        cameraX: Math.floor(camera.position.x),
+                        cameraY: Math.floor(camera.position.y),
+                        cameraZ: Math.floor(camera.position.z)
+                    };
+
+                    // Create and animate wireframe sphere
+                    const sphere = createWireframeSphere(clickPoint);
+                    animatePulsatingSphere(sphere);
+
+                    // Create X shape at the click point
+                    createXShape(clickPoint); // Use clickPoint directly
+
+                    // Speed up the line
+                    lineSpeed = 2;
+
+                    olta.create("vertices", newVertice);
+
+                    // Move camera to the new vertex after the line is drawn
+                    drawLinesToAddedVertex(clickPoint); // Call to draw the line to the added vertex
+                    //moveCameraToVertex(clickPoint); // Move the camera to the click point after drawing the line
+
+                    // Reseting button to default state
+                    canAddVertice = false;
+                    buttonAdd.style.backgroundColor = "#ff4444";  // Keep it red
+
+                    if (rotationOn) {
+                        rotationOn = false;
+                        setTimeout(() => {
+                            rotationOn = false;
+                        }, 12000);
+                    }
+
+                    // Show the share button when a new vertex is added
+                    shareButton.style.display = "block";
+                }
+            }
+
+            // ----- Welcome text logic -----
+            floatingText.style.opacity = 0;
+
+            setTimeout(() => {
+                floatingText.style.display = "none";
+                floatingText.style.opacity = 1;
+                displayInfo = false;
+            }, 500);
+        }
+
+        // Utils
+        // Generate a random integer in the range [0x000000, 0xEEEEEE]
+        // From 0 to 15658734 in decimal
+        function getRandomColorInt() {
+            return Math.floor(Math.random() * 0xeeeeee);
+        }
+
+        // Convert an integer to a hex color string
+        function intToHexColor(colorInt) {
+            let hexColor = colorInt.toString(16);
+            return `#${hexColor.padStart(6, "0")}`;
+        }
+
+        // Convert a wallet address into a color
+        function walletToColor(wallet) {
+            // Hash the wallet using a simple hash function
+            let hash = 0;
+            for (let i = 0; i < wallet.length; i++) {
+                hash = (hash << 5) - hash + wallet.charCodeAt(i);
+                hash |= 0; // Convert to 32bit integer
+            }
+
+            // Ensure the hash is non-negative
+            hash = Math.abs(hash);
+
+            // Map the hash value to the range 0 to 15658734
+            let integerColor = hash % (15658734 + 1);
+
+            let finalColor = intToHexColor(integerColor);
+
+            return finalColor;
+        }
+
+        // ----------- Sphere Indicator -----------
+
+        function createWireframeSphere(position) {
+            sphereVisible = true;
+
+            sphere.position.copy(position);
+            scene.add(sphere);
+            return sphere;
+        }
+
+        function animatePulsatingSphere(sphere) {
+            const scaleDelta = 0.0024; // Previous: 0.008
+            let increasing = true;
+
+            function animate() {
+                requestAnimationFrame(animate);
+
+                // boxMesh.rotation.y += 0.005;
+                // boxMesh.rotation.x += 0.005;
+                // boxMeshWireframe.rotation.y += 0.005;
+                // boxMeshWireframe.rotation.x += 0.005;
+                // renderer.render(scene, camera);
+
+
+                if (increasing) {
+                    sphere.scale.addScalar(scaleDelta);
+                    if (sphere.scale.x >= 2) {
+                        increasing = false;
+                    }
+                } else {
+                    sphere.scale.subScalar(scaleDelta);
+                    if (sphere.scale.x <= 1.5) {
+                        increasing = true;
+                    }
+                }
+            }
+
+            animate();
+        }
+
+        // ----------- Function for Message Logic -----------
+        async function generateRandomMessage() {
+            let randomIndex = Math.floor(Math.random() * messages.length);
+            let finalMessage = messages[randomIndex];
+            return finalMessage;
+        }
+
+        // New function to move the camera and return it
+        function moveCameraToVertex(point) {
+            const duration = 500;  // Adjust this value for faster/slower movement
+            const startPosition = camera.position.clone();
+            const startLookAt = controls.target.clone();
+            const endPosition = point.clone().add(new THREE.Vector3(250, 250, 250));  // Adjust the offset here
+            const startTime = Date.now();
+
+            function animateCamera() {
+                const now = Date.now();
+                const timeElapsed = now - startTime;
+                const progress = Math.min(timeElapsed / duration, 1);
+
+                camera.position.lerpVectors(startPosition, endPosition, progress);
+                controls.target.copy(point);
+
+                if (progress < 1) {
+                    requestAnimationFrame(animateCamera);
+                } else {
+                    // After 5 seconds, return to the original position
+                    setTimeout(() => {
+                        returnToOriginalPosition(startPosition, startLookAt);
+                        drawLinesToAddedVertex(point); // Call to draw the line after returning
+                    }, 2000);
+                }
+            }
+
+            animateCamera();
+        }
+
+        // New function to draw the line to the added vertex
+        function drawLinesToAddedVertex(vertex) {
+            // Logic to draw the line to the added vertex
+            const lastVertex = vertices[vertices.length - 1]; // Get the last added vertex
+            if (lastVertex) {
+                const currentLineColor = intToHexColor(lastVertex.lineColor);
+                const material = new THREE.MeshBasicMaterial({
+                    color: currentLineColor,
+                    side: THREE.DoubleSide
+                });
+
+                const points = [
+                    new THREE.Vector3(lastVertex.x, lastVertex.y, lastVertex.z),
+                    new THREE.Vector3(vertex.x, vertex.y, vertex.z)
+                ];
+
+                const geometry = new THREE.BufferGeometry().setFromPoints(points);
+                const line = new THREE.Line(geometry, material);
+                scene.add(line);
+            }
+        }
+
+        // function returnToOriginalPosition(originalPosition, originalLookAt) {
+        //   const duration = 2000;  // Animation duration in milliseconds
+        //   const startPosition = camera.position.clone();
+        //   const startLookAt = controls.target.clone();
+        //   const startTime = Date.now();
+
+        //   function animateReturn() {
+        //     const now = Date.now();
+        //     const timeElapsed = now - startTime;
+        //     const progress = Math.min(timeElapsed / duration, 1);
+
+        //     camera.position.lerpVectors(startPosition, originalPosition, progress);
+        //     controls.target.lerpVectors(startLookAt, originalLookAt, progress);
+
+        //     if (progress < 1) {
+        //       requestAnimationFrame(animateReturn);
+        //     }
+        //   }
+
+        //   animateReturn();
+        // }
+
+        // New function to create X shape
+        function createXShape(position) {
+            // Remove the existing X shape if it exists
+            if (xShape) {
+                scene.remove(xShape);
+            }
+
+            // Create a filled circle instead of an X shape
+            const geometry = new THREE.CircleGeometry(5, 32); // Adjust the radius as needed
+            const material = new THREE.MeshBasicMaterial({ color: 0xFFFFFF }); // White color for the circle
+            xShape = new THREE.Mesh(geometry, material);
+            xShape.position.copy(position);
+            scene.add(xShape);
+
+            // Remove the circle after 10 seconds
+            setTimeout(() => {
+                scene.remove(xShape);
+                xShape = null;
+            }, 10000); // Change this value to increase the duration
+
+            // Start the pulsing animation
+            animatePulsatingCircle(xShape);
+        }
+
+        // New function to animate the pulsing effect of the circle
+        function animatePulsatingCircle(circle) {
+            const scaleDelta = 0.02; // Adjust the scale speed
+            let increasing = true;
+
+            function animate() {
+                requestAnimationFrame(animate);
+
+                if (increasing) {
+                    circle.scale.addScalar(scaleDelta);
+                    if (circle.scale.x >= 1.5) { // Adjust max scale
+                        increasing = false;
+                    }
+                } else {
+                    circle.scale.subScalar(scaleDelta);
+                    if (circle.scale.x <= 1) { // Adjust min scale
+                        increasing = true;
+                    }
+                }
+            }
+
+            animate();
+        }
+
+        function smoothResetCamera() {
+            const duration = 2000; // Animation duration in milliseconds
+            const startPosition = camera.position.clone();
+            const startRotation = camera.rotation.clone();
+            const startTarget = controls.target.clone();
+
+            // Define the reset position (wider view)
+            const endPosition = new THREE.Vector3(0, 0, 6000); // Increased z value for a wider view
+            const endTarget = new THREE.Vector3(0, 0, 0);
+
+            const startTime = Date.now();
+
+            function animateReset() {
+                const now = Date.now();
+                const timeElapsed = now - startTime;
+                const progress = Math.min(timeElapsed / duration, 1);
+
+                // Interpolate position
+                camera.position.lerpVectors(startPosition, endPosition, progress);
+
+                // Interpolate target
+                controls.target.lerpVectors(startTarget, endTarget, progress);
+
+                // Update camera and controls
+                //  camera.lookAt(controls.target);
+                controls.update();
+
+                if (progress < 1) {
+                    requestAnimationFrame(animateReset);
+                } else {
+                    // Animation complete, ensure final values are set
+                    camera.position.copy(endPosition);
+                    controls.target.copy(endTarget);
+                    camera.lookAt(controls.target);
+                    controls.update();
+                }
+            }
+
+            //  animateReset();
+        }
+
+        function moveCameraToPosition(x, y, z) {
+            const duration = 1000;  // Animation duration in milliseconds
+            const startPosition = camera.position.clone();
+            const endPosition = new THREE.Vector3(x, y, z + 200); // Adjusted z for better view
+            const startTime = Date.now();
+
+            function animateCamera() {
+                const now = Date.now();
+                const timeElapsed = now - startTime;
+                const progress = Math.min(timeElapsed / duration, 1);
+
+                camera.position.lerpVectors(startPosition, endPosition, progress);
+                controls.target.set(x, y, z);  // Look at the current vertex
+
+                if (progress < 1) {
+                    requestAnimationFrame(animateCamera);
+                }
+            }
+
+            animateCamera();
+        }
+
+        // New function to highlight the connecting line
+        function highlightConnectingLine(vertex1, vertex2) {
+            const points = [
+                new THREE.Vector3(vertex1.x, vertex1.y, vertex1.z),
+                new THREE.Vector3(vertex2.x, vertex2.y, vertex2.z)
+            ];
+
+            const geometry = new THREE.BufferGeometry().setFromPoints(points);
+            const material = new THREE.LineBasicMaterial({ color: 0xffffff, linewidth: 2 });
+            const line = new THREE.Line(geometry, material);
+            scene.add(line);
+
+            // Flashing effect
+            let flashCount = 0;
+            const flashInterval = setInterval(() => {
+                line.material.color.set(flashCount % 2 === 0 ? 0xffffff : 0x000000); // Toggle color
+                flashCount++;
+                if (flashCount >= 10) { // Flash for a limited time
+                    clearInterval(flashInterval);
+                    scene.remove(line); // Remove line after flashing
+                }
+            }, 200); // Flash every 200ms
+        }
+
+        loadingText.style.display = "none";
+    </script>
+
+
+
+</body>
+
+</html>

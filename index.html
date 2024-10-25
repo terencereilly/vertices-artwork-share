@@ -128,10 +128,10 @@
     let drawIndex = 1;
     const raycaster = new THREE.Raycaster();
     const mouse = new THREE.Vector2();
-    let rotationOn = true;
+    let rotationOn = false;
     let displayInfo = false;
     let displayMessage = false;
-    let lineSpeed = 300; // 100 
+    let lineSpeed = 300; // Initial speed for line drawing
 
     let planeMesh, boxMesh, boxMeshWireframe, planeMeshWireframe;
     let forceWebGL = false;
@@ -339,18 +339,19 @@
         }
 
         const lastVertex = pendingVertices[pendingVertices.length - 1];
-        if (lastVertex) {
-          // Ensure camera position data exists
-          lastVertex.cameraX = lastVertex.cameraX !== undefined ? lastVertex.cameraX : camera.position.x;
-          lastVertex.cameraY = lastVertex.cameraY !== undefined ? lastVertex.cameraY : camera.position.y;
-          lastVertex.cameraZ = lastVertex.cameraZ !== undefined ? lastVertex.cameraZ : camera.position.z;
+        const previousVertex = vertices[vertices.length - 2]; // Get the previous vertex
 
-          console.log('New camera position:', lastVertex.cameraX, lastVertex.cameraY, lastVertex.cameraZ);
+        if (lastVertex && previousVertex) {
+          // Calculate the average position between the last and previous vertices
+          const averageX = (lastVertex.x + previousVertex.x) / 2;
+          const averageY = (lastVertex.y + previousVertex.y) / 2;
+          const averageZ = (lastVertex.z + previousVertex.z) / 2;
 
-          // Update camera position on all devices
-          moveCameraToPosition(lastVertex.cameraX, lastVertex.cameraY, lastVertex.cameraZ);
-        } else {
-          console.warn('Last vertex is missing camera position data:', lastVertex);
+          // Move camera to the average position
+          moveCameraToPosition(averageX, averageY, averageZ);
+
+          // Highlight the connecting line
+          highlightConnectingLine(previousVertex, lastVertex);
         }
 
         lastDraw = pendingVertices.length - 1;
@@ -385,9 +386,6 @@
       // Will change the vertex color to use the _creator property (wallet)
       // let colorVertex = intToHexColor(vertice.vertexColor);
       let colorVertex = walletToColor(vertice._creator);
-
-
-
 
 
       // opacity: 0.0,
@@ -432,7 +430,7 @@
         });
 
         // Number of segments to draw the line
-        var segments = lineSpeed;
+        var segments = lineSpeed; // Use the current lineSpeed
         const points = [currentVertex, nextVertex];
 
         currentLine = {
@@ -449,7 +447,7 @@
         drawing = true;
       }
       if (drawIndex >= vertices.length - 1) {
-        lineSpeed = 300;
+        lineSpeed = 10; // Slow down the line drawing when all lines are drawn
       }
     }
 
@@ -612,6 +610,9 @@
       }
 
       canAddVertice = !canAddVertice;
+
+      // Slow down line drawing on user click
+      lineSpeed = 300; // Start with a slower speed
     });
 
     // -- Add Button --
@@ -927,15 +928,16 @@
           animatePulsatingSphere(sphere);
 
           // Create X shape at the click point
-          createXShape(new THREE.Vector3(limitedX, limitedY, limitedZ));
+          createXShape(clickPoint); // Use clickPoint directly
 
           // Speed up the line
           lineSpeed = 2;
 
           olta.create("vertices", newVertice);
 
-          // Move camera to the new vertex
-          moveCameraToVertex(clickPoint);
+          // Move camera to the new vertex after the line is drawn
+          drawLinesToAddedVertex(clickPoint); // Call to draw the line to the added vertex
+          //moveCameraToVertex(clickPoint); // Move the camera to the click point after drawing the line
 
           // Reseting button to default state
           canAddVertice = false;
@@ -944,7 +946,7 @@
           if (rotationOn) {
             rotationOn = false;
             setTimeout(() => {
-              rotationOn = true;
+              rotationOn = false;
             }, 12000);
           }
 
@@ -1045,10 +1047,10 @@
 
     // New function to move the camera and return it
     function moveCameraToVertex(point) {
-      const duration = 1000;  // Animation duration in milliseconds
+      const duration = 500;  // Adjust this value for faster/slower movement
       const startPosition = camera.position.clone();
       const startLookAt = controls.target.clone();
-      const endPosition = point.clone().add(new THREE.Vector3(0, 0, 70));  // Offset to not be exactly on the point
+      const endPosition = point.clone().add(new THREE.Vector3(250, 250, 250));  // Adjust the offset here
       const startTime = Date.now();
 
       function animateCamera() {
@@ -1065,11 +1067,39 @@
           // After 5 seconds, return to the original position
           setTimeout(() => {
             returnToOriginalPosition(startPosition, startLookAt);
-          }, 5000);
+            drawLinesToAddedVertex(point); // Call to draw the line after returning
+          }, 2000);
         }
       }
 
       animateCamera();
+    }
+
+    // New function to draw the line to the added vertex
+    function drawLinesToAddedVertex(vertex) {
+      // Logic to draw the line to the added vertex
+      const lastVertex = vertices[vertices.length - 1]; // Get the last added vertex
+      if (lastVertex) {
+        const currentLineColor = intToHexColor(lastVertex.lineColor);
+        const material = new THREE.MeshBasicMaterial({
+          color: currentLineColor,
+          side: THREE.DoubleSide
+        });
+
+        const points = [
+          new THREE.Vector3(lastVertex.x, lastVertex.y, lastVertex.z),
+          new THREE.Vector3(vertex.x, vertex.y, vertex.z)
+        ];
+
+        const geometry = new THREE.BufferGeometry().setFromPoints(points);
+        const line = new THREE.Line(geometry, material);
+        scene.add(line);
+
+        // Delay the camera movement to allow the line to be visible
+        // setTimeout(() => {
+        //   moveCameraToVertex(vertex); // Move the camera to the added vertex after drawing the line
+        // }, 500); // Adjust the delay time as needed (500ms here)
+      }
     }
 
     // function returnToOriginalPosition(originalPosition, originalLookAt) {
@@ -1096,30 +1126,50 @@
 
     // New function to create X shape
     function createXShape(position) {
+      // Remove the existing X shape if it exists
       if (xShape) {
         scene.remove(xShape);
       }
 
-      const material = new THREE.LineBasicMaterial({ color: 0xFFFFFF });
-      const size = 10; // Adjust size as needed
-
-      const points = [
-        new THREE.Vector3(-size / 2, -size / 2, 0),
-        new THREE.Vector3(size / 2, size / 2, 0),
-        new THREE.Vector3(-size / 2, size / 2, 0),
-        new THREE.Vector3(size / 2, -size / 2, 0)
-      ];
-
-      const geometry = new THREE.BufferGeometry().setFromPoints(points);
-      xShape = new THREE.LineSegments(geometry, material);
+      // Create a filled circle instead of an X shape
+      const geometry = new THREE.CircleGeometry(5, 32); // Adjust the radius as needed
+      const material = new THREE.MeshBasicMaterial({ color: 0xFFFFFF }); // White color for the circle
+      xShape = new THREE.Mesh(geometry, material);
       xShape.position.copy(position);
       scene.add(xShape);
 
-      // Remove X shape after 5 seconds
+      // Remove the circle after 10 seconds
       setTimeout(() => {
         scene.remove(xShape);
         xShape = null;
-      }, 5000);
+      }, 10000); // Change this value to increase the duration
+
+      // Start the pulsing animation
+      animatePulsatingCircle(xShape);
+    }
+
+    // New function to animate the pulsing effect of the circle
+    function animatePulsatingCircle(circle) {
+      const scaleDelta = 0.01; // Adjust the scale speed to make it slower
+      let increasing = true;
+
+      function animate() {
+        requestAnimationFrame(animate);
+
+        if (increasing) {
+          circle.scale.addScalar(scaleDelta);
+          if (circle.scale.x >= 2) { // Adjust max scale to make it bigger
+            increasing = false;
+          }
+        } else {
+          circle.scale.subScalar(scaleDelta);
+          if (circle.scale.x <= 1) { // Adjust min scale
+            increasing = true;
+          }
+        }
+      }
+
+      animate();
     }
 
     function smoothResetCamera() {
@@ -1160,13 +1210,13 @@
         }
       }
 
-      animateReset();
+      //  animateReset();
     }
 
     function moveCameraToPosition(x, y, z) {
       const duration = 1000;  // Animation duration in milliseconds
       const startPosition = camera.position.clone();
-      const endPosition = new THREE.Vector3(x, y, z);
+      const endPosition = new THREE.Vector3(x, y, z + 500); // Adjusted z for better view
       const startTime = Date.now();
 
       function animateCamera() {
@@ -1175,7 +1225,7 @@
         const progress = Math.min(timeElapsed / duration, 1);
 
         camera.position.lerpVectors(startPosition, endPosition, progress);
-        controls.target.set(0, 0, 0);  // Adjust this if you want to look at a specific point
+        controls.target.set(x, y, z);  // Look at the current vertex
 
         if (progress < 1) {
           requestAnimationFrame(animateCamera);
@@ -1183,6 +1233,30 @@
       }
 
       animateCamera();
+    }
+
+    // New function to highlight the connecting line
+    function highlightConnectingLine(vertex1, vertex2) {
+      const points = [
+        new THREE.Vector3(vertex1.x, vertex1.y, vertex1.z),
+        new THREE.Vector3(vertex2.x, vertex2.y, vertex2.z)
+      ];
+
+      const geometry = new THREE.BufferGeometry().setFromPoints(points);
+      const material = new THREE.LineBasicMaterial({ color: 0xffffff, linewidth: 2 });
+      const line = new THREE.Line(geometry, material);
+      scene.add(line);
+
+      // Flashing effect
+      let flashCount = 0;
+      const flashInterval = setInterval(() => {
+        line.material.color.set(flashCount % 2 === 0 ? 0xffffff : 0x000000); // Toggle color
+        flashCount++;
+        if (flashCount >= 10) { // Flash for a limited time
+          clearInterval(flashInterval);
+          scene.remove(line); // Remove line after flashing
+        }
+      }, 200); // Flash every 200ms
     }
 
     loadingText.style.display = "none";
